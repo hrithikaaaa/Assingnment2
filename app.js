@@ -1,91 +1,105 @@
 const express = require('express');
-const fs = require('fs');
-const app = express();
+const mongoose = require('mongoose');
+const dotenv = require('dotenv');
 
+dotenv.config();
+const app = express();
 app.use(express.json());
 
-const FILE_PATH = 'bookings.json';
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 10000, // 10 seconds timeout
+})
+.then(() => console.log(" MongoDB Connected Successfully"))
+.catch((err) => console.error(" MongoDB Connection Failed:", err.message));
 
 
-let bookings = [];
-let id = 1;
-
-if (fs.existsSync(FILE_PATH)) {
-  const data = fs.readFileSync(FILE_PATH);
-  bookings = JSON.parse(data);
-  if (bookings.length > 0) {
-  const maxId = Math.max(...bookings.map(b => b.id));
-  id = maxId + 1;
-}
-
-}
-
-
-function saveBookings() {
-  fs.writeFileSync(FILE_PATH, JSON.stringify(bookings, null, 2));
-}
-
-
-
-app.get('/api/bookings', (req, res) => {
-  res.status(200).json({
-    message: "All bookings retrieved successfully!",
-    bookings
-  });
+// Booking Schema
+const bookingSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true },
+  event: { type: String, required: true },
+  ticketType: String,
+  createdAt: { type: Date, default: Date.now }
 });
 
+const Booking = mongoose.model("Booking", bookingSchema);
 
+// Routes
 
-app.post('/api/bookings', (req, res) => {
-  const booking = {
-    id: id++,
-    name: req.body.name,
-    email: req.body.email,
-    event: req.body.event,
-    date: req.body.date
-  };
-  bookings.push(booking);
-  saveBookings();
-  res.send('Booking added successfully');
+// 1️⃣ GET all bookings
+app.get("/api/bookings", async (req, res) => {
+  const bookings = await Booking.find();
+  res.status(200).json(bookings);
 });
 
+// 2️⃣ POST - create a new booking
+app.post("/api/bookings", async (req, res) => {
+  try {
+    const { name, email, event, ticketType } = req.body;
 
-app.get('/api/bookings/:id', (req, res) => {
-  const bookingId = parseInt(req.params.id);
-  const booking = bookings.find(b => b.id === bookingId);
-  if (booking) res.send(booking);
-  else res.send('Booking not found');
-});
+    if (!name || !email || !event) {
+      return res.status(400).json({ message: "Name, email, and event are required!" });
+    }
 
-
-app.put('/api/bookings/:id', (req, res) => {
-  const bookingId = parseInt(req.params.id);
-  const booking = bookings.find(b => b.id === bookingId);
-  if (booking) {
-    booking.name = req.body.name;
-    booking.email = req.body.email;
-    booking.event = req.body.event;
-    booking.date = req.body.date;
-    saveBookings();
-    res.send('Booking updated successfully');
-  } else {
-    res.send('Booking not found');
+    const newBooking = new Booking({ name, email, event, ticketType });
+    await newBooking.save();
+    res.status(201).json({ message: "Booking created successfully!", booking: newBooking });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-
-app.delete('/api/bookings/:id', (req, res) => {
-  const bookingId = parseInt(req.params.id);
-  const index = bookings.findIndex(b => b.id === bookingId);
-  if (index !== -1) {
-    bookings.splice(index, 1);
-    saveBookings();
-    res.send('Booking deleted successfully');
-  } else {
-    res.send('Booking not found');
+// 3️⃣ GET booking by ID
+app.get("/api/bookings/:id", async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ message: "Booking not found" });
+    res.status(200).json(booking);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-app.listen(3000, () => {
-  console.log('Synergia Booking API running on port 3000');
+// 4️⃣ PUT - update booking
+app.put("/api/bookings/:id", async (req, res) => {
+  try {
+    const updatedBooking = await Booking.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updatedBooking) return res.status(404).json({ message: "Booking not found" });
+    res.status(200).json({ message: "Booking updated successfully!", booking: updatedBooking });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 5️⃣ DELETE - cancel booking
+app.delete("/api/bookings/:id", async (req, res) => {
+  try {
+    const deleted = await Booking.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Booking not found" });
+    res.status(200).json({ message: "Booking deleted successfully!" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 6️⃣ Search by email
+app.get("/api/bookings/search", async (req, res) => {
+  const { email } = req.query;
+  const results = await Booking.find({ email: email });
+  res.status(200).json(results);
+});
+
+// 7️⃣ Filter by event
+app.get("/api/bookings/filter", async (req, res) => {
+  const { event } = req.query;
+  const results = await Booking.find({ event: event });
+  res.status(200).json(results);
+});
+
+// Start Server
+app.listen(process.env.PORT, () => {
+  console.log(`✅ Synergia Booking API running on port ${process.env.PORT}`);
 });
