@@ -27,15 +27,13 @@ const bookingSchema = new mongoose.Schema({
 
 const Booking = mongoose.model("Booking", bookingSchema);
 
-// Routes
 
-// 1️⃣ GET all bookings
 app.get("/api/bookings", async (req, res) => {
   const bookings = await Booking.find();
   res.status(200).json(bookings);
 });
 
-// 2️⃣ POST - create a new booking
+
 app.post("/api/bookings", async (req, res) => {
   try {
     const { name, email, event, ticketType } = req.body;
@@ -52,7 +50,7 @@ app.post("/api/bookings", async (req, res) => {
   }
 });
 
-// 3️⃣ GET booking by ID
+
 app.get("/api/bookings/:id", async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -63,7 +61,7 @@ app.get("/api/bookings/:id", async (req, res) => {
   }
 });
 
-// 4️⃣ PUT - update booking
+
 app.put("/api/bookings/:id", async (req, res) => {
   try {
     const updatedBooking = await Booking.findByIdAndUpdate(req.params.id, req.body, { new: true });
@@ -74,7 +72,7 @@ app.put("/api/bookings/:id", async (req, res) => {
   }
 });
 
-// 5️⃣ DELETE - cancel booking
+
 app.delete("/api/bookings/:id", async (req, res) => {
   try {
     const deleted = await Booking.findByIdAndDelete(req.params.id);
@@ -85,21 +83,21 @@ app.delete("/api/bookings/:id", async (req, res) => {
   }
 });
 
-// 6️⃣ Search by email
+
 app.get("/api/bookings/search", async (req, res) => {
   const { email } = req.query;
   const results = await Booking.find({ email: email });
   res.status(200).json(results);
 });
 
-// 7️⃣ Filter by event
+
 app.get("/api/bookings/filter", async (req, res) => {
   const { event } = req.query;
   const results = await Booking.find({ event: event });
   res.status(200).json(results);
 });
 
-// Start Server
+
 app.listen(process.env.PORT, () => {
-  console.log(`✅ Synergia Booking API running on port ${process.env.PORT}`);
+  console.log(` Synergia Booking API running on port ${process.env.PORT}`);
 });
